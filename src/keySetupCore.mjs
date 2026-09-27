@@ -52,9 +52,17 @@ export const KEY_SETUP_KEYS = Object.freeze([
   Object.freeze({
     id: 'openai',
     title: 'OPENAI',
-    unlocks: 'Voice control — talk to the planet',
+    unlocks: 'Voice control + HUD summaries (when AI provider is OpenAI)',
     getUrl: 'https://platform.openai.com/api-keys',
     envVars: Object.freeze(['OPENAI_API_KEY']),
+    tier: 'metered',
+  }),
+  Object.freeze({
+    id: 'gemini',
+    title: 'GOOGLE GEMINI',
+    unlocks: 'HUD summaries via Gemini (set GEV_AI_PROVIDER=google or auto)',
+    getUrl: 'https://aistudio.google.com/apikey',
+    envVars: Object.freeze(['GEMINI_API_KEY']),
     tier: 'metered',
   }),
   Object.freeze({

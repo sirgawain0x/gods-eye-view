@@ -13,6 +13,7 @@ import {
 } from './constants.js';
 import { realtimeInstructions } from './instructions.js';
 import { GEV_REALTIME_TOOLS } from './tools.js';
+import { resolveVoiceProvider } from '../ai/provider-config.js';
 
 function createRealtimeTokenHandler({
   annotationGuidance,
@@ -35,9 +36,20 @@ function createRealtimeTokenHandler({
 
     const apiKey = resolveApiKey();
     if (!apiKey) {
+      const voice = resolveVoiceProvider();
       res.statusCode = 503;
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'OPENAI_API_KEY is not set' }));
+      res.end(
+        JSON.stringify({
+          error: 'OPENAI_API_KEY is not set',
+          code: voice.code || 'OPENAI_NOT_CONFIGURED',
+          hudProvider: voice.hudProvider,
+          hint:
+            voice.code === 'VOICE_REQUIRES_OPENAI_REALTIME'
+              ? 'GEV_AI_PROVIDER=google uses Gemini for HUD summaries; voice still requires OPENAI_API_KEY for Realtime.'
+              : 'Set OPENAI_API_KEY or GEMINI_API_KEY with GEV_AI_PROVIDER=auto.',
+        }),
+      );
       return;
     }
 

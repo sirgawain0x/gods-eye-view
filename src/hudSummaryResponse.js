@@ -3,23 +3,50 @@ import {
   layerSnapshots,
 } from './data/layerSnapshot.js';
 
-export const HUD_SUMMARY_UNCONFIGURED_CODE = 'OPENAI_NOT_CONFIGURED';
+export const HUD_SUMMARY_UNCONFIGURED_CODE = 'AI_NOT_CONFIGURED';
+
+/** @deprecated Use {@link HUD_SUMMARY_UNCONFIGURED_CODE} */
+export const HUD_SUMMARY_OPENAI_LEGACY_CODE = 'OPENAI_NOT_CONFIGURED';
+
+const HUD_SUMMARY_UNCONFIGURED_CODES = new Set([
+  HUD_SUMMARY_UNCONFIGURED_CODE,
+  HUD_SUMMARY_OPENAI_LEGACY_CODE,
+]);
 
 /**
  * Describe the optional HUD summary capability without turning a deliberately
  * keyless boot into an HTTP failure.
  *
- * @param {unknown} apiKey - Candidate server-side OpenAI credential.
- * @returns {{ statusCode: 200, payload: { configured: false, code: string, error: null, summary: null } }|null}
- *   A graceful unconfigured response, or null when the provider is configured.
+ * @param {unknown} apiKeyOrHudResolution
+ *   Legacy: OpenAI API key string. Preferred: `{ provider, configured }` from
+ *   `resolveHudProvider()`.
+ * @returns {{ statusCode: 200, payload: object }|null}
  */
-export function keylessHudSummaryResponse(apiKey) {
-  if (String(apiKey ?? '').trim()) return null;
+export function keylessHudSummaryResponse(apiKeyOrHudResolution) {
+  if (
+    apiKeyOrHudResolution &&
+    typeof apiKeyOrHudResolution === 'object' &&
+    'configured' in apiKeyOrHudResolution
+  ) {
+    if (apiKeyOrHudResolution.configured) return null;
+    return {
+      statusCode: 200,
+      payload: {
+        configured: false,
+        code: HUD_SUMMARY_UNCONFIGURED_CODE,
+        provider: apiKeyOrHudResolution.provider ?? 'none',
+        error: null,
+        summary: null,
+      },
+    };
+  }
+  if (String(apiKeyOrHudResolution ?? '').trim()) return null;
   return {
     statusCode: 200,
     payload: {
       configured: false,
       code: HUD_SUMMARY_UNCONFIGURED_CODE,
+      provider: 'none',
       error: null,
       summary: null,
     },
@@ -32,11 +59,14 @@ export function isHudSummaryUnconfigured(status, data) {
     data !== null && typeof data === 'object' && !Array.isArray(data)
       ? Object.keys(data)
       : [];
+  const allowedKeys =
+    keys.length === 4 ||
+    (keys.length === 5 && Object.prototype.hasOwnProperty.call(data, 'provider'));
   return (
-    keys.length === 4 &&
+    allowedKeys &&
     status === 200 &&
     data?.configured === false &&
-    data?.code === HUD_SUMMARY_UNCONFIGURED_CODE &&
+    HUD_SUMMARY_UNCONFIGURED_CODES.has(data?.code) &&
     data?.error === null &&
     data?.summary === null
   );
