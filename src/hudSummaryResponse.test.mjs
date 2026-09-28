@@ -3,24 +3,27 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import {
   HUD_SUMMARY_INSTRUCTIONS,
+  HUD_SUMMARY_OPENAI_LEGACY_CODE,
   HUD_SUMMARY_UNCONFIGURED_CODE,
   hudSummaryLayerContext,
   hudTelemetryProvenanceTag,
   isHudSummaryUnconfigured,
   keylessHudSummaryResponse,
 } from './hudSummaryResponse.js';
-import { openAiRealtimeProxy } from '../vite.config.js';
+import { aiProviderProxy } from '../server/providers/ai/index.js';
+import { openAiRealtimeProxy } from '../server/providers/openai.js';
 
 const UNCONFIGURED_PAYLOAD = {
   configured: false,
   code: HUD_SUMMARY_UNCONFIGURED_CODE,
+  provider: 'none',
   error: null,
   summary: null,
 };
 
-function installOpenAiRoutes() {
+function installAiRoutes() {
   const routes = new Map();
-  openAiRealtimeProxy().configureServer({
+  aiProviderProxy().configureServer({
     middlewares: {
       use(path, handler) {
         routes.set(path, handler);
@@ -90,6 +93,15 @@ test('recognizes only the exact deliberate no-key fallback response', () => {
   assert.equal(isHudSummaryUnconfigured(200, {
     code: HUD_SUMMARY_UNCONFIGURED_CODE,
   }), false);
+  assert.equal(
+    isHudSummaryUnconfigured(200, {
+      configured: false,
+      code: HUD_SUMMARY_OPENAI_LEGACY_CODE,
+      error: null,
+      summary: null,
+    }),
+    true,
+  );
 });
 
 test('does not hide real provider and HTTP failures', () => {
@@ -106,8 +118,16 @@ test('the installed keyless HUD route stays successful after the voice quota is 
   process.env.OPENAI_API_KEY = '';
   process.env.GEV_RATELIMIT_OPENAI_PER_MIN = '1';
   try {
-    const routes = installOpenAiRoutes();
-    const token = routes.get('/api/realtime/token');
+    const routes = installAiRoutes();
+    const openAiRoutes = new Map();
+    openAiRealtimeProxy().configureServer({
+      middlewares: {
+        use(path, handler) {
+          openAiRoutes.set(path, handler);
+        },
+      },
+    });
+    const token = openAiRoutes.get('/api/realtime/token');
     const hud = routes.get('/api/openai/hud-summary');
     assert.equal(typeof token, 'function');
     assert.equal(typeof hud, 'function');
@@ -115,7 +135,8 @@ test('the installed keyless HUD route stays successful after the voice quota is 
     const firstToken = await invokeRoute(token);
     const secondToken = await invokeRoute(token);
     assert.equal(firstToken.statusCode, 503);
-    assert.deepEqual(firstToken.body, { error: 'OPENAI_API_KEY is not set' });
+    assert.equal(firstToken.body.error, 'OPENAI_API_KEY is not set');
+    assert.equal(firstToken.body.code, 'OPENAI_NOT_CONFIGURED');
     assert.equal(secondToken.statusCode, 429);
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -166,7 +187,7 @@ test('HUD summary instructions require non-nominal feedState in the five words',
 });
 
 test('the HUD proxy uses the shared provenance instructions', () => {
-  const local = readFileSync(new URL('../server/providers/openai/hud-summary.js', import.meta.url), 'utf8');
+  const local = readFileSync(new URL('../server/providers/ai/hud-summary.js', import.meta.url), 'utf8');
   assert.match(local, /HUD_SUMMARY_INSTRUCTIONS/);
   assert.doesNotMatch(local, /enabled-layer text labels/);
 });

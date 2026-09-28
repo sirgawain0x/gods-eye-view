@@ -1,5 +1,4 @@
 import { defaultSourceRoot } from './common/source-root.js';
-import { handleHudSummary } from './openai/hud-summary.js';
 import { createDebugLogHandler } from './openai/debug-log.js';
 import { createRealtimeTokenHandler } from './openai/realtime.js';
 
@@ -15,8 +14,6 @@ function openAiRealtimeProxy({
   realtime = {},
 } = {}) {
   function install(middlewares) {
-    middlewares.use('/api/openai/hud-summary', handleHudSummary);
-
     middlewares.use(
       '/api/realtime/debug-log',
       createDebugLogHandler({ sourceRoot }),
