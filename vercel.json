@@ -4,8 +4,18 @@
   "installCommand": "npm ci",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/catchall?__gev_path=$1"
+    }
+  ],
   "functions": {
-    "api/[...path].js": {
+    "api/catchall.js": {
+      "maxDuration": 60,
+      "memory": 1024
+    },
+    "api/realtime/token.js": {
       "maxDuration": 60,
       "memory": 1024
     }

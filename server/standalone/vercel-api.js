@@ -21,3 +21,8 @@ export function createVercelApiApp() {
   }
   return apiApp;
 }
+
+/** @type {import('@vercel/node').VercelApiHandler} */
+export function handleVercelApiRequest(req, res) {
+  createVercelApiApp()(req, res);
+}
